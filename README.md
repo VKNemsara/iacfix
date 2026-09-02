@@ -14,7 +14,7 @@ A web application that automatically detects and semantically fixes Ansible play
 ### 1. Clone / copy this directory
 
 ```bash
-cd iacfix
+cd playbook-fixer
 ```
 
 ### 2. Build and start

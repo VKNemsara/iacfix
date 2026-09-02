@@ -84,36 +84,113 @@ async def login_url_stream() -> AsyncIterator[str]:
     Spawn `agy auth login`, yield the OAuth URL when it appears,
     then yield 'AUTH_COMPLETE' once auth succeeds.
 
-    The browser-side code opens the URL in a new tab; we poll until done.
+    Reads stdout AND stderr concurrently (agy may write the URL to either).
+    Sends periodic HEARTBEAT pings so the SSE connection stays alive.
     """
-    proc = await asyncio.create_subprocess_exec(
-        AGY_BIN, "auth", "login",
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.STDOUT,
-        env={**os.environ, "TERM": "dumb"},
-    )
+    agy_bin = _find_agy()
+    if not _agy_exists(agy_bin):
+        yield "AUTH_ERROR:agy CLI not found. Install: curl -fsSL https://antigravity.google/cli/install.sh | bash"
+        return
 
-    url_found = False
-    url_re = re.compile(r"https?://\S+")
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            agy_bin, "auth", "login",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,     # capture stderr separately
+            env={**os.environ, "TERM": "dumb", "NO_COLOR": "1"},
+        )
+    except FileNotFoundError:
+        yield "AUTH_ERROR:agy CLI not found in PATH inside the container."
+        return
 
-    async for raw in proc.stdout:
-        line = raw.decode(errors="replace").strip()
-        if not url_found:
-            m = url_re.search(line)
-            if m:
-                url_found = True
-                yield f"AUTH_URL:{m.group(0)}"
+    url_re = re.compile(r"https?://\S{10,}")    # at least 10 chars to avoid noise
+    ansi_re = re.compile(r"\x1b\[[0-9;]*m")    # strip ANSI colour codes
+    accumulated = ""
+    url_emitted = False
+
+    async def _read_stream(stream) -> None:
+        """Read a stream in 256-byte chunks, appending to accumulated."""
+        nonlocal accumulated
+        while True:
+            chunk = await stream.read(256)
+            if not chunk:
+                break
+            accumulated += ansi_re.sub("", chunk.decode(errors="replace"))
+
+    stdout_task = asyncio.create_task(_read_stream(proc.stdout))
+    stderr_task = asyncio.create_task(_read_stream(proc.stderr))
+
+    loop = asyncio.get_event_loop()
+    url_deadline = loop.time() + 60        # 60 s to see the URL
+    auth_deadline = loop.time() + 360      # 6 min total
+    last_heartbeat = 0.0
+
+    try:
+        while True:
+            now = loop.time()
+
+            # Heartbeat every 3 s — keeps the SSE connection alive
+            if now - last_heartbeat >= 3:
+                last_heartbeat = now
+                yield "HEARTBEAT:"
+
+            # Emit URL as soon as it appears in the buffer
+            if not url_emitted:
+                m = url_re.search(accumulated)
+                if m:
+                    url_emitted = True
+                    yield f"AUTH_URL:{m.group(0)}"
+                    url_deadline = loop.time() + 300   # extend: user needs time to click
+
+            # Both streams done → process has exited
+            if stdout_task.done() and stderr_task.done():
+                break
+
+            if now > url_deadline and not url_emitted:
+                proc.kill()
+                yield "AUTH_ERROR:agy did not output a login URL within 60 s. " \
+                      "Check container logs for details."
+                return
+
+            if now > auth_deadline:
+                proc.kill()
+                yield "AUTH_TIMEOUT"
+                return
+
+            await asyncio.sleep(0.3)
+    finally:
+        stdout_task.cancel()
+        stderr_task.cancel()
 
     await proc.wait()
+
+    # Final scan of accumulated buffer in case URL arrived at the very end
+    if not url_emitted:
+        m = url_re.search(accumulated)
+        if m:
+            url_emitted = True
+            yield f"AUTH_URL:{m.group(0)}"
+
+    if not url_emitted:
+        yield "AUTH_ERROR:agy exited without printing a login URL. " \
+              f"Output was: {accumulated[:300]!r}"
+        return
 
     # Poll until authenticated (max 5 min)
     for _ in range(60):
         await asyncio.sleep(5)
+        yield "HEARTBEAT:"
         if await is_authenticated():
             yield "AUTH_COMPLETE"
             return
 
     yield "AUTH_TIMEOUT"
+
+
+def _agy_exists(bin_path: str) -> bool:
+    """Return True if bin_path resolves to an executable."""
+    import shutil
+    return bool(shutil.which(bin_path)) or Path(bin_path).is_file()
 
 
 # ---------------------------------------------------------------------------

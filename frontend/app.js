@@ -76,6 +76,9 @@ function startSignIn() {
 
     if (data.stage === 'STREAM_END') return;
 
+    // Ignore heartbeats silently — they just keep the connection alive
+    if (data.type === 'HEARTBEAT') return;
+
     if (data.type === 'AUTH_URL') {
       $('auth-url-box').classList.remove('hidden');
       const link = $('auth-url-link');
@@ -92,7 +95,12 @@ function startSignIn() {
       es.close();
       showError('auth-error', 'Authentication timed out. Please try again.');
       btn.disabled = false;
-      btn.textContent = 'Sign in with Antigravity CLI';
+      btn.textContent = 'Retry Sign In';
+    } else if (data.type === 'AUTH_ERROR') {
+      es.close();
+      showError('auth-error', `Error: ${data.value}`);
+      btn.disabled = false;
+      btn.textContent = 'Retry Sign In';
     }
   };
 
