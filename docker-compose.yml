@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+  playbook-fixer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: playbook-fixer:latest
+    container_name: playbook-fixer
+    ports:
+      - "8080:8080"
+    volumes:
+      # Docker socket — lets the backend spin up sibling containers for deploy testing
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Persist agy auth tokens across container restarts
+      - agy_auth:/root/.gemini
+      # Persist agy config
+      - agy_config:/root/.config/Antigravity
+      # Session storage (playbooks during processing)
+      - playbook_sessions:/tmp/playbook-fixer-sessions
+    environment:
+      - SESSIONS_DIR=/tmp/playbook-fixer-sessions
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  agy_auth:
+    driver: local
+  agy_config:
+    driver: local
+  playbook_sessions:
+    driver: local

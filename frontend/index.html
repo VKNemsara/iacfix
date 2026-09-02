@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Antigravity Playbook Fixer</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <!-- ── Header ────────────────────────────────────────────────── -->
+  <header>
+    <div class="logo">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+      </svg>
+      <span>Antigravity Playbook Fixer</span>
+    </div>
+    <div id="auth-badge" class="badge badge-offline">Not signed in</div>
+  </header>
+
+  <!-- ── Views ─────────────────────────────────────────────────── -->
+  <main>
+
+    <!-- View 1: Sign In -->
+    <div id="view-signin" class="view active">
+      <div class="card center-card">
+        <div class="card-icon">🔐</div>
+        <h2>Sign in to Antigravity</h2>
+        <p class="muted">You need an active Antigravity CLI session to fix your playbooks.</p>
+        <button id="btn-signin" class="btn btn-primary btn-large" onclick="startSignIn()">
+          Sign in with Antigravity CLI
+        </button>
+        <div id="auth-url-box" class="auth-url-box hidden">
+          <p class="muted small">Open this URL in your browser to complete sign-in:</p>
+          <a id="auth-url-link" href="#" target="_blank" class="auth-url"></a>
+          <div class="spinner-row"><div class="spinner"></div><span>Waiting for authentication…</span></div>
+        </div>
+        <div id="auth-error" class="error-box hidden"></div>
+      </div>
+    </div>
+
+    <!-- View 2: Upload -->
+    <div id="view-upload" class="view">
+      <div class="card center-card">
+        <div class="card-icon">📄</div>
+        <h2>Upload Your Ansible Playbook</h2>
+        <p class="muted">Supports <code>.yml</code> and <code>.yaml</code> files. Max 5 MB.</p>
+        <div id="drop-zone" class="drop-zone" onclick="document.getElementById('file-input').click()"
+             ondragover="onDragOver(event)" ondrop="onDrop(event)" ondragleave="onDragLeave(event)">
+          <div class="drop-icon">⬆</div>
+          <p>Drag &amp; drop your playbook here<br/>or click to browse</p>
+          <input type="file" id="file-input" accept=".yml,.yaml" style="display:none" onchange="onFileSelected(event)" />
+        </div>
+        <div id="file-preview" class="file-preview hidden">
+          <span class="file-icon">📋</span>
+          <span id="file-name"></span>
+          <span id="file-size" class="muted small"></span>
+          <button class="btn-icon" onclick="clearFile()" title="Remove">✕</button>
+        </div>
+        <button id="btn-analyze" class="btn btn-primary btn-large" disabled onclick="startPipeline()">
+          Analyze &amp; Fix
+        </button>
+        <div id="upload-error" class="error-box hidden"></div>
+      </div>
+    </div>
+
+    <!-- View 3: Pipeline Monitor -->
+    <div id="view-pipeline" class="view">
+      <div class="pipeline-layout">
+
+        <!-- Left: Stage stepper -->
+        <aside class="stage-panel">
+          <h3>Pipeline Stages</h3>
+          <ol class="stage-list" id="stage-list">
+            <li class="stage-item" data-stage="INIT">
+              <span class="stage-dot"></span>
+              <div><strong>Prepare</strong><small>Docker test env</small></div>
+            </li>
+            <li class="stage-item" data-stage="STAGE_1">
+              <span class="stage-dot"></span>
+              <div><strong>Initial Checks</strong><small>ansible-lint + checkov</small></div>
+            </li>
+            <li class="stage-item" data-stage="STAGE_2">
+              <span class="stage-dot"></span>
+              <div><strong>AGY Fix Loop</strong><small>Semantic correction</small></div>
+            </li>
+            <li class="stage-item" data-stage="STAGE_3_VALIDATE">
+              <span class="stage-dot"></span>
+              <div><strong>Re-validation</strong><small>Post-fix checks</small></div>
+            </li>
+            <li class="stage-item" data-stage="DEPLOY_TEST">
+              <span class="stage-dot"></span>
+              <div><strong>Deploy Test</strong><small>Docker container run</small></div>
+            </li>
+            <li class="stage-item" data-stage="PIPELINE">
+              <span class="stage-dot"></span>
+              <div><strong>Result</strong><small>Done or failed</small></div>
+            </li>
+          </ol>
+
+          <div id="download-section" class="download-section hidden">
+            <button class="btn btn-success btn-large" onclick="downloadFixed()">
+              ⬇ Download Fixed Playbook
+            </button>
+          </div>
+          <div id="new-run-section" class="new-run-section hidden">
+            <button class="btn btn-outline" onclick="resetToUpload()">
+              ↩ Fix Another Playbook
+            </button>
+          </div>
+        </aside>
+
+        <!-- Center: Live log -->
+        <section class="log-panel">
+          <div class="log-header">
+            <h3>Live Feed</h3>
+            <label class="scroll-lock-label">
+              <input type="checkbox" id="scroll-lock" checked /> Auto-scroll
+            </label>
+          </div>
+          <div id="log-feed" class="log-feed"></div>
+        </section>
+
+        <!-- Right: Detail panel (issues / diff) -->
+        <section class="detail-panel" id="detail-panel">
+          <div class="detail-tabs">
+            <button class="tab-btn active" onclick="switchTab('issues')">Issues</button>
+            <button class="tab-btn" onclick="switchTab('diff')">Diff</button>
+          </div>
+          <div id="tab-issues" class="tab-content active">
+            <div id="issues-content" class="issues-list">
+              <p class="muted center">No issues yet.</p>
+            </div>
+          </div>
+          <div id="tab-diff" class="tab-content">
+            <div id="diff-content" class="diff-viewer">
+              <p class="muted center">No diff yet.</p>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
