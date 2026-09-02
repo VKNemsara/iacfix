@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 # Try the official installer; fall back to a no-op so docker build doesn't
 # break in environments without internet (e.g., sandbox). The app will still
 # run and agy errors surface cleanly in the UI.
-RUN curl -sSfL https://dl.antigravity.google/cli/install.sh | bash 2>/dev/null \
+RUN curl -fsSL https://antigravity.google/cli/install.sh | bash \
     || echo "INFO: agy installer not reachable — install manually or mount from host"
 
 # Make sure agy is on PATH wherever the installer put it
