@@ -2,14 +2,14 @@
 main.py — FastAPI application entry point
 
 Routes:
-  GET  /                         → serves index.html
-  GET  /auth/status              → { authenticated: bool }
-  GET  /auth/login/stream        → SSE: streams auth URL then AUTH_COMPLETE
-  POST /upload                   → multipart upload → { session_id }
-  GET  /pipeline/{sid}/stream    → SSE: full pipeline events
-  GET  /pipeline/{sid}/download  → file download of fixed playbook
-  GET  /pipeline/{sid}/original  → original uploaded playbook (for diff)
-  GET  /health                   → { status: "ok" }
+  GET       /                         → serves index.html
+  GET       /auth/status              → { authenticated: bool }
+  WebSocket /auth/terminal            → live agy PTY terminal (xterm.js compatible)
+  POST      /upload                   → multipart upload → { session_id }
+  GET       /pipeline/{sid}/stream    → SSE: full pipeline events
+  GET       /pipeline/{sid}/download  → file download of fixed playbook
+  GET       /pipeline/{sid}/original  → original uploaded playbook (for diff)
+  GET       /health                   → { status: "ok" }
 """
 
 import asyncio
@@ -19,12 +19,13 @@ import os
 import mimetypes
 from pathlib import Path
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Request
+from fastapi import FastAPI, File, UploadFile, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
-from agy_client import is_authenticated, login_url_stream
+from agy_client import is_authenticated
+from terminal import run_auth_terminal
 from pipeline import create_session, run_pipeline, get_fixed_path, SESSIONS_DIR
 
 # ---------------------------------------------------------------------------
@@ -96,27 +97,18 @@ async def auth_status():
     return {"authenticated": authenticated}
 
 
-@app.get("/auth/login/stream")
-async def auth_login_stream(request: Request):
-    """
-    SSE endpoint that triggers `agy auth login` and streams:
-      - AUTH_URL:<url>  → the OAuth URL for the user to open
-      - AUTH_COMPLETE   → session established
-      - AUTH_TIMEOUT    → timed out waiting
-    """
-    async def _gen():
-        async for msg in login_url_stream():
-            yield json.dumps({"type": msg.split(":")[0], "value": msg.partition(":")[2]})
 
-    return StreamingResponse(
-        _sse_stream(_gen()),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-            "Connection": "keep-alive",
-        },
-    )
+@app.websocket("/auth/terminal")
+async def auth_terminal_ws(websocket: WebSocket):
+    """
+    WebSocket endpoint: bridges the browser to a live `agy` PTY session.
+
+    Binary frames  → raw terminal bytes (rendered by xterm.js in the browser)
+    Text frames    → JSON control messages (auth_url, auth_complete, etc.)
+    """
+    await websocket.accept()
+    await run_auth_terminal(websocket)
+
 
 
 @app.post("/upload")

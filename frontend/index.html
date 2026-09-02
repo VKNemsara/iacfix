@@ -4,6 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Antigravity Playbook Fixer</title>
+
+  <!-- xterm.js — web terminal renderer -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
@@ -18,28 +24,54 @@
     <div id="auth-badge" class="badge badge-offline">Not signed in</div>
   </header>
 
-  <!-- ── Views ─────────────────────────────────────────────────── -->
   <main>
 
-    <!-- View 1: Sign In -->
+    <!-- ── View 1: Sign In ──────────────────────────────────────── -->
     <div id="view-signin" class="view active">
-      <div class="card center-card">
-        <div class="card-icon">🔐</div>
-        <h2>Sign in to Antigravity</h2>
-        <p class="muted">You need an active Antigravity CLI session to fix your playbooks.</p>
-        <button id="btn-signin" class="btn btn-primary btn-large" onclick="startSignIn()">
-          Sign in with Antigravity CLI
-        </button>
-        <div id="auth-url-box" class="auth-url-box hidden">
-          <p class="muted small">Open this URL in your browser to complete sign-in:</p>
-          <a id="auth-url-link" href="#" target="_blank" class="auth-url"></a>
-          <div class="spinner-row"><div class="spinner"></div><span>Waiting for authentication…</span></div>
+      <div class="signin-layout">
+
+        <!-- Left: instructions -->
+        <div class="card signin-card">
+          <div class="card-icon">🔐</div>
+          <h2>Sign in to Antigravity</h2>
+          <p class="muted">
+            Click <strong>Start Terminal</strong> to open a live <code>agy</code> session.<br/>
+            A login URL will appear in the terminal — click it (or copy it) to authenticate.
+          </p>
+
+          <button id="btn-start-terminal" class="btn btn-primary btn-large" onclick="startAuthTerminal()">
+            Start Terminal &amp; Sign In
+          </button>
+
+          <!-- URL banner — shown when agy prints the OAuth URL -->
+          <div id="auth-url-banner" class="auth-url-banner hidden">
+            <span class="banner-label">🔗 Login URL detected:</span>
+            <a id="auth-url-link" href="#" target="_blank" class="auth-url-link">Open in browser</a>
+            <p class="muted small">Complete sign-in in your browser, then return here.</p>
+          </div>
+
+          <div id="auth-status-msg" class="status-msg hidden"></div>
+          <div id="auth-error" class="error-box hidden"></div>
         </div>
-        <div id="auth-error" class="error-box hidden"></div>
+
+        <!-- Right: live agy terminal -->
+        <div class="terminal-card" id="terminal-card">
+          <div class="terminal-header">
+            <span class="terminal-title">
+              <span class="term-dot red"></span>
+              <span class="term-dot yellow"></span>
+              <span class="term-dot green"></span>
+              agy — Antigravity CLI
+            </span>
+            <span id="term-status" class="term-status">Idle</span>
+          </div>
+          <div id="terminal-container"></div>
+        </div>
+
       </div>
     </div>
 
-    <!-- View 2: Upload -->
+    <!-- ── View 2: Upload ───────────────────────────────────────── -->
     <div id="view-upload" class="view">
       <div class="card center-card">
         <div class="card-icon">📄</div>
@@ -64,7 +96,7 @@
       </div>
     </div>
 
-    <!-- View 3: Pipeline Monitor -->
+    <!-- ── View 3: Pipeline Monitor ─────────────────────────────── -->
     <div id="view-pipeline" class="view">
       <div class="pipeline-layout">
 
@@ -121,7 +153,7 @@
           <div id="log-feed" class="log-feed"></div>
         </section>
 
-        <!-- Right: Detail panel (issues / diff) -->
+        <!-- Right: Detail panel -->
         <section class="detail-panel" id="detail-panel">
           <div class="detail-tabs">
             <button class="tab-btn active" onclick="switchTab('issues')">Issues</button>

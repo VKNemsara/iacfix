@@ -124,31 +124,123 @@ p.small, .small { font-size: 12px; }
 }
 .btn-icon:hover { color: var(--danger); }
 
-/* ── Auth URL box ─────────────────────────────────────────── */
-.auth-url-box {
-  background: var(--surface2);
+/* ── Sign-in layout ────────────────────────────────────────── */
+.signin-layout {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 24px;
+  padding: 32px;
+  height: calc(100vh - 57px);
+  align-items: start;
+}
+
+.signin-card {
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 16px;
+  border-radius: var(--radius);
+  padding: 32px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  text-align: left;
+  gap: 18px;
+  text-align: center;
 }
-.auth-url {
-  font-family: "SF Mono", "Fira Code", monospace;
-  font-size: 11px;
-  color: var(--accent);
-  word-break: break-all;
-  text-decoration: underline;
-}
-.spinner-row {
+
+/* ── Auth URL banner ───────────────────────────────────────── */
+.auth-url-banner {
+  background: rgba(63, 185, 80, 0.08);
+  border: 1px solid var(--success);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--text-muted);
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  animation: fadeIn 0.3s ease;
+}
+.banner-label { font-size: 12px; font-weight: 700; color: var(--success); text-transform: uppercase; letter-spacing: 0.05em; }
+.auth-url-link {
+  display: inline-block;
+  padding: 10px 16px;
+  background: var(--success);
+  color: #0d1117;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+  text-align: center;
+  transition: background var(--transition);
+}
+.auth-url-link:hover { background: #56d364; }
+
+.status-msg {
+  background: var(--accent-glow);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  color: var(--accent);
   font-size: 13px;
 }
+
+/* ── Terminal card ─────────────────────────────────────────── */
+.terminal-card {
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 120px);
+  min-height: 400px;
+}
+.terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.terminal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: "SF Mono", "Fira Code", monospace;
+}
+.term-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.term-dot.red    { background: #ff5f57; }
+.term-dot.yellow { background: #febc2e; }
+.term-dot.green  { background: #28c840; }
+.term-status {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.term-status.connected { color: var(--success); border-color: var(--success); background: rgba(63,185,80,0.1); }
+.term-status.done      { color: var(--accent);  border-color: var(--accent);  background: var(--accent-glow); }
+
+#terminal-container {
+  flex: 1;
+  padding: 8px;
+  overflow: hidden;
+}
+
+/* Make xterm fill the container */
+#terminal-container .xterm,
+#terminal-container .xterm-viewport,
+#terminal-container .xterm-screen {
+  height: 100% !important;
+}
+
 
 /* ── Drop zone ────────────────────────────────────────────── */
 .drop-zone {
